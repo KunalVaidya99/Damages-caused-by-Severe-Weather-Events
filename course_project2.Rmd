@@ -1,0 +1,157 @@
+
+**Damages caused by Severe Weather Events between 1950 and 2011**
+======================================
+Author:Kunal Vaidya
+
+## **Synopsis**
+**Severe weather events** are always damaging for both population,property and crops.It is also always helpful to know which type of Severe weather event causes most damage so that Governments can prepare better to tackle the most damaging Severe weather event. The aim of this data analysis is to make use of Storm data provided by **National Oceanic and Atmospheric Administration (NOAA)** and analyze which severe weather events causes most damage in terms of population and economy in United States.The Dataset contains various Severe weather events dated from year 1950 to November 2011 and the population damage ,economic damage caused by that specific event.After analyzing the data,I found out that **Tornadoes** cause the most damage in terms of injuries and fatalities,also **Flood** causes the most property damage.
+
+## **Data Processing**
+
+The data comes from National Weather Service
+
+Loading in the storm data file using read.csv().
+
+
+```{r,echo=TRUE,cache=TRUE}
+library(knitr)
+storm_data <- read.csv("repdata_data_StormData.csv.bz2")
+kable(head(storm_data))
+```
+Now,in the following step I cumulated the fatalities and injuries for each event because there are multiple occurrences of events at different location or time
+
+## **Population Health**
+Analyzing the data for population health 
+Calculating cumulative number of fatalities and injuries for each unique event.Using only top 15 most damaging events for visualization
+```{r,echo=TRUE}
+fatalities <- with(storm_data,tapply(FATALITIES,EVTYPE,sum))
+evtype <- unique(storm_data$EVTYPE)
+o <- order(evtype)
+evtype <- evtype[o]
+fatal.data <- data.frame(evtype=evtype,Fatalities=fatalities)
+
+library(plyr)
+fatal.data <- arrange(fatal.data,desc(fatal.data$Fatalities))
+fatal.top <- fatal.data[1:15,]
+injury <- with(storm_data,tapply(INJURIES,EVTYPE,sum))
+injury.data <- data.frame(evtype=evtype,Injuries=injury)
+injury.data <-arrange(injury.data,desc(injury.data$Injuries))
+injury.top <- injury.data[1:15,]
+library(knitr)
+
+kable(list(fatal.top,injury.top))
+```
+                 
+                          Table Showing number of fatalities and injuries for 15 most damaging events
+
+## **Economic Damages**
+
+### **Property Damages**
+
+Removing all property damages having zero value as they are not of use and also removing all NA's
+```{r,echo=TRUE,cache=TRUE}
+zeros_prop <- !storm_data$PROPDMG==0
+storm.clean.prop <- storm_data[zeros_prop,]
+na <- !is.na(storm.clean.prop$PROPDMGEXP)
+storm.clean.prop <- storm.clean.prop[na,]
+na <- !is.na(storm.clean.prop$PROPDMGE)
+storm.clean.prop <- storm.clean.prop[na,]
+```
+
+As in dataset property damages is divided in two parts PROPDMG gives numeric value and PROPDMGEXP gives unit.
+There are four units  
+1)"H":Hundred  
+2)"K":Thousand  
+3)"M":Million  
+4)"B":Billion  
+Substituting Hundreds,Thousand etc. with their numeric values
+```{r,echo=TRUE}
+storm.clean.prop$PROPDMGEXP <- gsub("[Hh]","100",storm.clean.prop$PROPDMGEXP)
+storm.clean.prop$PROPDMGEXP <- gsub("[Kk]","1000",storm.clean.prop$PROPDMGEXP)
+storm.clean.prop$PROPDMGEXP <- gsub("[Mm]","1000000",storm.clean.prop$PROPDMGEXP)
+storm.clean.prop$PROPDMGEXP <- gsub("[Bb]","1000000000",storm.clean.prop$PROPDMGEXP)
+
+storm.clean.prop$PROPDMGECL <- storm.clean.prop$PROPDMG * as.numeric(storm.clean.prop$PROPDMGEXP)
+na <- !(is.na(storm.clean.prop$PROPDMGECL))
+storm.clean.prop <- storm.clean.prop[na,]
+prop_damage <- with(storm.clean.prop,tapply(PROPDMGECL,EVTYPE,sum))
+evtype.cl <- unique(storm.clean.prop$EVTYPE)
+
+o.cl <- order(evtype.cl)
+evtype.cl <- evtype.cl[o.cl]
+```
+
+Creating a dataframe for property damages in dollars and the event type
+
+```{r,echo=TRUE}
+prop.damage.data <- data.frame(evtype=evtype.cl,prop_damage=prop_damage)
+library(plyr)
+
+prop.damage.data <- arrange(prop.damage.data,desc(prop.damage.data$prop_damage))
+
+kable(prop.damage.data[1:15,])
+```
+
+                                      Table for Property Damages in Dollars for top 15 events
+
+### **Crop Damages**
+Doing the same steps as did for Property Damages
+```{r,echo=TRUE,cache=TRUE}
+zeros_crop <- !storm_data$CROPDMG==0
+storm.clean.crop <- storm_data[zeros_crop,]
+na <- !is.na(storm.clean.crop$CROPDMGEXP)
+storm.clean.crop <- storm.clean.crop[na,]
+storm.clean.crop$CROPDMGEXP <- gsub("[Hh]","100",storm.clean.crop$CROPDMGEXP)
+storm.clean.crop$CROPDMGEXP <- gsub("[Kk]","1000",storm.clean.crop$CROPDMGEXP)
+storm.clean.crop$CROPDMGEXP <- gsub("[Mm]","1000000",storm.clean.crop$CROPDMGEXP)
+storm.clean.crop$CROPDMGEXP <- gsub("[Bb]","1000000000",storm.clean.crop$CROPDMGEXP)
+
+storm.clean.crop$CROPDMGECL <- storm.clean.crop$CROPDMG * as.numeric(storm.clean.crop$CROPDMGEXP)
+crop_damage <- with(storm.clean.crop,tapply(CROPDMGECL,EVTYPE,sum))
+evtype.cl <- unique(storm.clean.crop$EVTYPE)
+o.cl <- order(evtype.cl)
+evtype.cl <- evtype.cl[o.cl]
+crop.damage.data <- data.frame(evtype=evtype.cl,crop_damage=crop_damage)
+library(plyr)
+crop.damage.data <- arrange(crop.damage.data,desc(crop.damage.data$crop_damage))
+
+kable(crop.damage.data[1:15,])
+```
+
+                                       Table for Property Damages in Dollars for top 15 events
+
+## **Results**
+### **Population Health Damages**
+
+```{r,echo=TRUE}
+library(ggplot2)
+library(ggpubr)
+options(scipen=999)
+```
+To show which event is most damaging a bar plot would be most appropriate to show which event has most injuries or fatalities.  
+
+
+As from plot it is clear that **Tornadoes** are the most damaging in terms of both injuries and fatalities.  
+Second most fatal event is **Excessive Heat**.
+```{r,echo=TRUE,fig.width=15,fig.height=7}
+plot1 <- ggplot(data=fatal.top,aes(x=evtype,y=Fatalities)) + geom_bar(stat='identity',aes(fill=evtype)) + theme(axis.text.x =element_text(angle=45,vjust=0.8,hjust=1)) + xlab("Event Type") +  ggtitle("Fatalities caused by Severe Weather Events between 1950 and 2011")
+plot2 <- ggplot(data=injury.top,aes(x=evtype,y=Injuries)) + geom_bar(stat='identity',aes(fill=evtype)) +  theme(axis.text.x =element_text(angle=45,vjust=0.8,hjust=1)) + xlab("Event Type") +  ggtitle("Injuries caused by Severe Weather Events between 1950 and 2011")
+ggarrange(plot1,plot2)
+```
+          
+                           Bar Plot showing Fatalities and Injuries for the top 15 most damaging events
+     
+### **Property and Crop Damages**
+Again barplot will be the most appropriate
+
+As from plot it is clear that **Floods** has caused most damage to property.Second most damaging is **Hurricane/Typhoon**.
+For crop damages the most damaging is **Drought** and Second is **Freeze**.  
+
+**M** in y-axis stands for Million
+```{r,echo=TRUE,fig.width=15,fig.height=7}
+plot3 <- ggplot(data=prop.damage.data[1:15,],aes(x=evtype,y=prop_damage)) + geom_bar(stat='identity',aes(fill=evtype)) + theme(axis.text.x =element_text(angle=45,vjust=0.8,hjust=1)) + ylab("Property Damage ($) ") + xlab('Event Type') + scale_y_continuous(labels=function(x){paste0(x/1000000,"M")}) + ggtitle("Property Damage caused by Severe Weather Events between 1950 and 2011")
+plot4 <- ggplot(data=crop.damage.data[1:15,],aes(x=evtype,y=crop_damage)) + geom_bar(stat='identity',aes(fill=evtype)) + theme(axis.text.x =element_text(angle=45,vjust=0.8,hjust=1)) + ylab("Crop Damage ($) ") + xlab('Event Type') + scale_y_continuous(labels=function(x){paste0(x/1000000,"M")}) +  ggtitle("Crop Damage caused by Severe Weather Events between 1950 and 2011")
+ggarrange(plot3,plot4)
+```
+
+                Bar plot showing Property Damages and Crop Damages (both in dollars) for top 15 most damaging events
